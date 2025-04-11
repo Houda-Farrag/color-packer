@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Color Viewer</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: #f4f4f4;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 2rem;
+      }
+
+      h1 {
+        margin-bottom: 1rem;
+        color: #333;
+      }
+
+      .color-form {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 2rem;
+      }
+
+      input[type="text"] {
+        padding: 0.5rem 1rem;
+        font-size: 1rem;
+        border-radius: 8px;
+        border: 1px solid #ccc;
+        width: 200px;
+      }
+
+      button {
+        padding: 0.5rem 1rem;
+        font-size: 1rem;
+        border-radius: 8px;
+        background: #333;
+        color: white;
+        border: none;
+        cursor: pointer;
+        transition: background 0.3s ease;
+      }
+
+      button:hover {
+        background: #555;
+      }
+
+      .color-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1rem;
+        width: 100%;
+        max-width: 800px;
+      }
+
+      .color-box {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        transition: transform 0.2s;
+      }
+
+      .color-box:hover {
+        transform: scale(1.03);
+      }
+
+      .color-preview {
+        height: 100px;
+        transition: background 0.3s;
+      }
+
+      .color-code {
+        padding: 0.5rem 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.9rem;
+        background: #fafafa;
+      }
+
+      .copy-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: #007bff;
+        font-size: 0.9rem;
+      }
+
+      .copy-btn:hover {
+        text-decoration: underline;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1>Color Previewer</h1>
+
+    <form class="color-form" onsubmit="addColor(event)">
+      <input
+        type="text"
+        id="colorInput"
+        placeholder="Enter color code (e.g. #ff0000)"
+      />
+      <button type="submit">Add Color</button>
+    </form>
+
+    <div class="color-list" id="colorList"></div>
+
+    <script>
+      const BaseUrl = "http://localhost:3001";
+
+      document.addEventListener("DOMContentLoaded", () => {
+        fetch(BaseUrl + "/api/colors")
+          .then((res) => res.json())
+          .then((colors) => {
+            colors.forEach((color) => appendColor(color));
+          });
+      });
+
+      function addColor(e) {
+        e.preventDefault();
+        const input = document.getElementById("colorInput");
+        const color = input.value.trim();
+        if (!color) return;
+
+        fetch(BaseUrl + "/api/colors", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ color }),
+        })
+          .then((res) => res.json())
+          .then(() => {
+            appendColor(color);
+            input.value = "";
+          });
+      }
+
+      function appendColor(color) {
+        const div = document.createElement("div");
+        div.className = "color-box";
+
+        div.innerHTML = `
+        <div class="color-preview" style="background: ${color};"></div>
+        <div class="color-code">
+          <span>${color}</span>
+          <button class="copy-btn" onclick="copyToClipboard('${color}')">Copy</button>
+        </div>
+      `;
+
+        document.getElementById("colorList").appendChild(div);
+      }
+
+      function copyToClipboard(text) {
+        navigator.clipboard
+          .writeText(text)
+          .then(() => {
+            alert(`Copied: ${text}`);
+          })
+          .catch((err) => {
+            alert("Failed to copy");
+            console.error(err);
+          });
+      }
+      function appendColor(color) {
+        const div = document.createElement("div");
+        div.className = "color-box";
+
+        div.innerHTML = `
+        <div class="color-preview" style="background: ${color};"></div>
+        <div class="color-code">
+          <span>${color}</span>
+          <div>
+            <button class="copy-btn" onclick="copyToClipboard('${color}')">Copy</button>
+            <button class="copy-btn" onclick="deleteColor('${color}', this)">Delete</button>
+          </div>
+        </div>
+        `;
+
+        document.getElementById("colorList").appendChild(div);
+      }
+      function deleteColor(color, btn) {
+        if (!confirm(`Delete ${color}?`)) return;
+
+        fetch(`${BaseUrl}/api/colors/${encodeURIComponent(color)}`, {
+          method: "DELETE",
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.success) {
+              // Remove the color box from the DOM
+              const colorBox = btn.closest(".color-box");
+              colorBox.remove();
+            }
+          })
+          .catch((err) => {
+            alert("Failed to delete color");
+            console.error(err);
+          });
+      }
+    </script>
+    <h2>Create Project Palette</h2>
+    <form id="projectForm" onsubmit="createProject(event)">
+      <input type="text" id="projectName" placeholder="Project Name" required />
+      <input type="text" id="primaryColor" placeholder="Primary Color (e.g. #123456)" required />
+      <input type="text" id="secondaryColor" placeholder="Secondary Color" required />
+      <input type="text" id="otherColors" placeholder="Other Colors (comma-separated)" />
+      <button type="submit">Create Project</button>
+    </form>
+    
+    <div id="projectList"></div>
+    
+    <script>
+      function createProject(e) {
+        e.preventDefault();
+        const name = document.getElementById("projectName").value.trim();
+        const primary = document.getElementById("primaryColor").value.trim();
+        const secondary = document.getElementById("secondaryColor").value.trim();
+        const othersInput = document.getElementById("otherColors").value.trim();
+        const others = othersInput ? othersInput.split(',').map(c => c.trim()) : [];
+    
+        fetch(BaseUrl + "/api/projects", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, primary, secondary, others }),
+        })
+          .then(res => res.json())
+          .then(data => {
+            if (data.success) {
+              displayProject(data.project);
+              document.getElementById("projectForm").reset();
+            } else {
+              alert(data.error || "Failed to create project");
+            }
+          });
+      }
+    
+      function displayProject(project) {
+        const div = document.createElement("div");
+        div.style.marginTop = "1rem";
+        div.innerHTML = `
+          <h3>${project.name}</h3>
+          <p><strong>Primary:</strong> <span style="color:${project.primary}">${project.primary}</span></p>
+          <p><strong>Secondary:</strong> <span style="color:${project.secondary}">${project.secondary}</span></p>
+          <p><strong>Other Colors:</strong> ${project.others.map(c => `<span style="color:${c}">${c}</span>`).join(', ')}</p>
+          <hr />
+        `;
+        document.getElementById("projectList").appendChild(div);
+      }
+    
+      // Load projects on page load
+      document.addEventListener("DOMContentLoaded", () => {
+        fetch(BaseUrl + "/api/projects")
+          .then(res => res.json())
+          .then(data => data.forEach(p => displayProject(p)));
+      });
+    </script>
+  </body>
+</html>
